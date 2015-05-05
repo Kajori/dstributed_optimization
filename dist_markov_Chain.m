@@ -1,7 +1,8 @@
 %3 phase fault  -no
 %Gaussian Noise - YES
-%malacious node - NO
-%AIM - calculate global diff
+% malacious node - if present node 5
+% there will be a central guy.. trim the top f and bottom f values 
+%here f =1
 MAX_DEV = 1e-6;
 
 clear all; clc; close all;
@@ -20,7 +21,6 @@ NO_OF_EIGEN_VALUES=20;
 PRECISION=10000000000;
 TRUE=1;
 FALSE=0;
-DEFAULT=0.0001;
 st_prev=[0,0,0];
 area_line_no=[53,60,61;
               30,48,63;
@@ -51,17 +51,11 @@ H_pdc=zeros(NO_AREA,PMU_PER_AREA*m,deg);
 C_pdc=zeros(NO_AREA,PMU_PER_AREA*m);
 display('Gaussian Noise no 3 phase fault');
 
-%Intial Guess
-%2,5 is a successor of 1
-%3 is a successor of 2
-%4 is a successor of 3
-%5 is a successor of 4,1
-
-w=zeros(deg,1);
-w12(:,1)=w; w15(:,1)=w; w23(:,1)=w; w34(:,1)=w; w45(:,1)=w; %Everyone has equal initial w_ij
 
 
-x(:,1)=ones(NO_AREA*deg,1);
+
+
+
 
 rho=10^-9;
 N=10000;
@@ -80,7 +74,6 @@ E1=zeros(3,3);E2=zeros(3,3);E3=zeros(3,3);E4=zeros(3,3);E5=zeros(3,3);
 for row=1:NO_AREA
      for col=1:PMU_PER_AREA
            file_name=sprintf('no_3_phase_fault_area_%d_line_%d.txt',row,area_line_no(row,col));
-           %disp(file_name);
            Y_org(row,col,:)=importdata(file_name,'\n');
       end %end of for col
 end %end of for row
@@ -101,8 +94,30 @@ for row=1:NO_AREA
     end %end of for col
 end %end of for row        
 
-convergence_flag=FALSE; %checks connvergence
-global_diff=0;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%         Hankel Matrix Creation
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+for row=1:NO_AREA
+    for col=1:PMU_PER_AREA
+               temp_1=reshape(Y(row,col,:),SIZE_OF_voltage_data,1);
+               temp_2=fliplr(Hankel(temp_1,m,deg));
+               H_pmu(row,col,:,:)=temp_2;
+               temp_3=reshape(Y(row,col,1:m),1,m);
+               C_pmu(row,col,:)=temp_3.';      
+    end %end of for col
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %         Combining Data from PMU to PDC
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    for col=1:PMU_PER_AREA
+          H_pdc(row,(col-1)*m+1: col*m,:)= reshape(H_pmu(row,col,:,:),m,deg);
+          C_pdc(row,(col-1)*m+1: col*m) = reshape(C_pmu(row,col,:),m,1);
+     end %end of for col
+ end %end of for row
+
+w=zeros(NO_AREA*deg,1);
+x(:,1)=ones(NO_AREA*deg,1); %Everyone has equal initial x
+
 for j=1:N
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -117,31 +132,18 @@ for j=1:N
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %         if we have not reached convergence
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    
-    
     text=sprintf(' -------------- %d --------------',j);
     disp( text);
     
-    for row=1:NO_AREA
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %         Hankel Matrix Creation
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-      for col=1:PMU_PER_AREA
-               temp_1=reshape(Y(row,col,:),SIZE_OF_voltage_data,1);
-               temp_2=fliplr(Hankel(temp_1,m,deg));
-               H_pmu(row,col,:,:)=temp_2;
-               temp_3=reshape(Y(row,col,1:m),1,m);
-               C_pmu(row,col,:)=temp_3.';      
-      end %end of for col
+    H_r=reshape(H_pdc(row,1:TT,:),TT,deg);
+    C_r=reshape(C_pdc(row,1:TT,:),TT,deg);
+    
+    x((row-1)*deg+1:row*deg,j+1)=(H_r'*H_r+rho*eye(size(H_r,2)))\(H_r'*C_r-w((row-1)*deg+1:row*deg,j)+rho*z(:,j));
+    
    
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %         Combining Data from PMU to PDC
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    for col=1:PMU_PER_AREA
-          H_pdc(row,(col-1)*m+1: col*m,:)= reshape(H_pmu(row,col,:,:),m,deg);
-          C_pdc(row,(col-1)*m+1: col*m) = reshape(C_pmu(row,col,:),m,1);
-     end %end of for col      
+          
    
      Pre_succ=2; %no_of_successor(row)+no_of_predecessor(row); % Pre_succ=n(Pi)+n(Si)
        
