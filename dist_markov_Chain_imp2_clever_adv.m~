@@ -3,7 +3,8 @@
 % malacious node - if present node 5
 % every node will receive values from evry other node
 % there will be a central guy.. trim the top f and bottom f values 
-% here f =1
+% The value added by the adversaty is epsilon less then the values proposed
+% by the other guys.. hence his value never gets thrown away
 MAX_DEV = 1e-6;
 
 clear all; clc; close all;
@@ -53,7 +54,7 @@ C_pdc=zeros(NO_AREA,PMU_PER_AREA*m);
 display('Gaussian Noise no 3 phase fault');
 
 rho=10^-9;
-N=10;
+N=10000;
 disp('-----------------------------------------------');
 tic;
 
@@ -134,9 +135,18 @@ for j=1:N
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     disp(sprintf(' -------------- %d --------------',j));
     
+    outliers=zeros(NO_AREA,2);
     for row=1:NO_AREA
-        [ mal_node_1,mal_node_2,Pre_succ]=cal_outlier(x,j,row);
+       
         
+        [mal_node_1,mal_node_2,Pre_succ]= cal_outlier(x,j,row,NO_AREA,deg);
+        mal_node_1=-1;
+        mal_node_2=-1;
+        Pre_succ=2;
+        
+        [n1,n2]=cal_node1_node2(row,mal_node_1,mal_node_2);
+        outliers(row,1)=n1;
+        outliers(row,2)=n2;
         
         dummy=reshape(H_pdc(row,1:TT,:),TT,deg);
         dummy_0=dummy.';
@@ -145,100 +155,30 @@ for j=1:N
         dummy_3=reshape(C_pdc(row,1:TT,:),TT,1);
         dummy_4=dummy'*dummy_3;
        
-        
-       
-    
         if(row==1)
-            if  (mal_node_1==5 && mal_node_2==2) 
-                x((row-1)*deg+1:row*deg,j+1)= x((row-1)*deg+1:row*deg,j);
-            else
-                 if  (mal_node_1~=5 && mal_node_2~=2)
-                    dummy_5=dummy_4+(w12_1(:,j) + w15_1(:,j))+rho*(x(deg+1:2*deg,j)+x(4*deg+1:5*deg,j));
-                elseif  (mal_node_1~=5 && mal_node_2==2)
-                    dummy_5=dummy_4+(w15_1(:,j))+rho*(x(4*deg+1:5*deg,j));
-                elseif  (mal_node_1==5 && mal_node_2~=2)
-                    dummy_5=dummy_4+(w12_1(:,j))+rho*(x(deg+1:2*deg,j));
-                 end
-                x((row-1)*deg+1:row*deg,j+1) =dummy_1\dummy_5;
-            end
-            
-        elseif(row==2)
-            if  (mal_node_1==1 && mal_node_2==3) x((row-1)*deg+1:row*deg,j+1)=x((row-1)*deg+1:row*deg,j);
-            else    
-                if  (mal_node_1~=1 && mal_node_2~=3)
-                    dummy_5=dummy_4+(w23_2(:,j) - w12_2(:,j))+rho*(x(1:deg,j+1)+x(2*deg+1:3*deg,j));
-                elseif  (mal_node_1~=1 && mal_node_2==3)
-                    dummy_5=dummy_4 - w12_2(:,j)+rho*(x(1:deg,j+1));
-                elseif  (mal_node_1==1 && mal_node_2~=3)
-                    dummy_5=dummy_4+(w23_2(:,j))+rho*(x(2*deg+1:3*deg,j));
-                end 
-                x((row-1)*deg+1:row*deg,j+1)=dummy_1\dummy_5;
-            end  
-            
-            if  (mal_node_1~=1)
-                w12_2(:,j+1)=w12_2(:,j)-rho*(x(1:deg,j+1)-x(deg+1:2*deg,j+1));   % w12 update as 2 is the successor of 1
-            else
-                w12_2(:,j+1)=w12_2(:,j);
-            end
-            
-            
+            dummy_5=dummy_4+(n1*w12_1(:,j) + n2*w15_1(:,j))+rho*(n1*x(deg+1:2*deg,j)+n2*x(4*deg+1:5*deg,j));
+            x((row-1)*deg+1:row*deg,j+1) =dummy_1\dummy_5;
+         elseif(row==2)
+              dummy_5=dummy_4+(n1*w23_2(:,j) - n2*w12_2(:,j))+rho*(n1*x(1:deg,j+1)+n2*x(2*deg+1:3*deg,j));
+              x((row-1)*deg+1:row*deg,j+1) =dummy_1\dummy_5;
+              w12_2(:,j+1)=w12_2(:,j)-n1*rho*(x(1:deg,j+1)-x(deg+1:2*deg,j+1));   % w12 update as 2 is the successor of 1
         elseif(row==3)
-             if  (mal_node_1==2 && mal_node_2==4) 
-                x((row-1)*deg+1:row*deg,j+1)= x((row-1)*deg+1:row*deg,j)
-             else
-                if  (mal_node_1~=2 && mal_node_2~=4)
-                    dummy_5=dummy_4+(w34_3(:,j) - w23_3(:,j))+rho*(x(deg+1:2*deg,j+1)+x(3*deg+1:4*deg,j));
-                elseif  (mal_node_1~=2 && mal_node_2==4)
-                    dummy_5=dummy_4+( - w23_3(:,j))+rho*(x(deg+1:2*deg,j+1));
-                elseif  (mal_node_1==2 && mal_node_2~=4)
-                    dummy_5=dummy_4+(w34_3(:,j) )+rho*(x(3*deg+1:4*deg,j));
-                end
-                x((row-1)*deg+1:row*deg,j+1)=dummy_1\dummy_5;
-             end
-             
-             if  (mal_node_1==2)
-                 w23_3(:,j+1)=w23_3(:,j);
-             else
-                w23_3(:,j+1)=w23_3(:,j)-rho*(x(deg+1:2*deg,j+1)-x(2*deg+1:3*deg,j+1));   % w23 update as 2 is the predecessor of 3
-             end
-             
-        elseif(row==4)
-            if  (mal_node_1==3 && mal_node_2==5) x((row-1)*deg+1:row*deg,j+1)=x((row-1)*deg+1:row*deg,j);
-            else
-                if  (mal_node_1~=3 && mal_node_2~=5)
-                    dummy_5=dummy_4+(w45_4(:,j) - w34_4(:,j))+rho*(x(2*deg+1:3*deg,j+1)+x(4*deg+1:5*deg,j));
-                elseif  (mal_node_1~=3 && mal_node_2==5)
-                    dummy_5=dummy_4 - w34_4(:,j)+rho*(x(2*deg+1:3*deg,j+1));
-                elseif  (mal_node_1==3 && mal_node_2~=5)
-                    dummy_5=dummy_4+(w45_4(:,j) =)+rho*(x(4*deg+1:5*deg,j));
-                end
-                x((row-1)*deg+1:row*deg,j+1)=dummy_1\dummy_5;
-            end
-            if  (mal_node_1~=3) % w34 update as 3 is the predecessor of 4
-                w34_4(:,j+1)=w34_4(:,j)-rho*(x(2*deg+1:3*deg,j+1)-x(3*deg+1:4*deg,j+1));   
-            else
-                w34_4(:,j+1)=w34_4(:,j)
-            end
-                
-            
-      elseif ( row==5)
-           if  (mal_node_1==4 && mal_node_2==1) x((row-1)*deg+1:row*deg,j+1)=x((row-1)*deg+1:row*deg,j);
-           else
-               if (mal_node_1~=4 && mal_node_2~=1)
-                     dummy_5=dummy_4+(-w15_5(:,j) - w45_5(:,j))+rho*(x(1:deg,j+1)+x(3*deg+1:4*deg,j+1));
-               elseif (mal_node_1~=4 && mal_node_2==1)
-                     dummy_5=dummy_4+(- w45_5(:,j))+rho*(x(3*deg+1:4*deg,j+1));
-               elseif (mal_node_1==4 && mal_node_2~=1)
-                     dummy_5=dummy_4+(-w15_5(:,j) - w45_5(:,j))+rho*(x(1:deg,j+1)+x(3*deg+1:4*deg,j+1));
-                    
-           x((row-1)*deg+1:row*deg,j+1)=1*dummy_1\dummy_5;
-           x((row-1)*deg+1:row*deg,j+1)=1.05*  x((row-1)*deg+1:row*deg,j+1);
-           w15_5(:,j+1)=w15_5(:,j)-rho*(x(1:deg,j+1)-x(4*deg+1:5*deg,j+1));        % w14 update as 1 is the predecessor of 4
-           w45_5(:,j+1)=w45_5(:,j)-rho*(x(3*deg+1:4*deg,j+1)-x(4*deg+1:5*deg,j+1));        % w14 update as 1 is the predecessor of 4
-        end %end of if
+             dummy_5=dummy_4+(n1*w34_3(:,j) - n2*w23_3(:,j))+rho*(n1*x(deg+1:2*deg,j+1)+n2*x(3*deg+1:4*deg,j));
+             x((row-1)*deg+1:row*deg,j+1)=dummy_1\dummy_5;
+             w23_3(:,j+1)=w23_3(:,j)-n1*rho*(x(deg+1:2*deg,j+1)-x(2*deg+1:3*deg,j+1));   % w23 update as 2 is the predecessor of 3
+       elseif(row==4)
+            dummy_5=dummy_4+(n1*w45_4(:,j) - n2*w34_4(:,j))+rho*(n1*x(2*deg+1:3*deg,j+1)+n2*x(4*deg+1:5*deg,j));
+            x((row-1)*deg+1:row*deg,j+1)=dummy_1\dummy_5;
+            w34_4(:,j+1)=w34_4(:,j)-n1*rho*(x(2*deg+1:3*deg,j+1)-x(3*deg+1:4*deg,j+1));   
+       elseif ( row==5)
+            dummy_5=dummy_4+((-1)*n1*w15_5(:,j) - w45_5(:,j))+rho*(n1*x(1:deg,j+1)+n2*x(3*deg+1:4*deg,j+1));
+            x((row-1)*deg+1:row*deg,j+1)=1.03*dummy_1\dummy_5;
+            w15_5(:,j+1)=w15_5(:,j)-n1*rho*(x(1:deg,j+1)-x(4*deg+1:5*deg,j+1));        % w14 update as 1 is the predecessor of 4
+            w45_5(:,j+1)=w45_5(:,j)-n2*rho*(x(3*deg+1:4*deg,j+1)-x(4*deg+1:5*deg,j+1));        % w14 update as 1 is the predecessor of 4
+       end %end of if
    end %end of for row
    
-   convergence_flag=TRUE;
+    convergence_flag=TRUE;
     for row=1:NO_AREA*deg
         if ((abs(x(row,j+1)-x(row,j)))>0.000001)
           convergence_flag=FALSE;
@@ -247,7 +187,7 @@ for j=1:N
      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
      %         after receiving from all successor
      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    w12_1(:,j+1)=w12_1(:,j)-rho*(x(1:deg,j+1)-x(deg+1:2*deg,j+1));
+    w12_1(:,j+1)=w12_1(:,j)-outliers(1,rho*(x(1:deg,j+1)-x(deg+1:2*deg,j+1));
     if(mal_node~=5)
           w15_1(:,j+1)=w15_1(:,j)-rho*(x(1:deg,j+1)-x(4*deg+1:5*deg,j+1));
     end
@@ -259,7 +199,7 @@ for j=1:N
 end  %  end %end of for j 
 display(j);
 
-
+x_fault_no_detection=x;
 %display(x(:,ending_interation_num));
-%save('gaussian_0_001.mat');
+save('fault_no_detection_3per.mat');
 
