@@ -2,12 +2,12 @@ clear all; clc; close all;
 
 TOLERANCE=0;
 
-load('fault_detection_3per.mat');
-load('fault_no_detection_3per.mat');
+load('no_fault_3.mat');
+load('fault_detection_3per_3.mat');
 
 
-var_v9=x_fault_no_detection;
-var_v10=x_fault_detection;
+var_v9=x_no_fault_detection;
+var_v10=x_no_fault;
 temp=1;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %       Compare Version area 1
@@ -16,7 +16,7 @@ temp=1;
 dummy=abs(var_v9(1,1)-var_v10(1,1));
 max_error_percentage= (dummy/abs(var_v10(1,1)));  
 display(max_error_percentage);
-N=10000;
+N=9000;
 
 col=N;
 for row=1:size(var_v9,1)

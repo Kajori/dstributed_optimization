@@ -130,15 +130,15 @@ for j=1:N
        
         
         [mal_node_1,mal_node_2,Pre_succ]= cal_outlier(x,j,row,NO_AREA,deg);
-        mal_node_1=-1;
-        mal_node_2=-1;
-        Pre_succ=2;
+        
+        %Use the followung lines to calculate no taatck
+%         mal_node_1=-1;
+%         mal_node_2=-1;
+%         Pre_succ=2;
         
         [n1,n2]=cal_node1_node2(row,mal_node_1,mal_node_2);
         outliers(row,1)=n1;
         outliers(row,2)=n2;
-        
-        
         
         dummy=reshape(H_pdc(row,1:TT,:),TT,deg);
         dummy_0=dummy.';
@@ -164,7 +164,7 @@ for j=1:N
             w34_4(:,j+1)=w34_4(:,j)-n1*rho*(x(2*deg+1:3*deg,j+1)-x(3*deg+1:4*deg,j+1));   
        elseif ( row==5)
             dummy_5=dummy_4+((-1)*n1*w15_5(:,j) - w45_5(:,j))+rho*(n1*x(1:deg,j+1)+n2*x(3*deg+1:4*deg,j+1));
-            x((row-1)*deg+1:row*deg,j+1)=dummy_1\dummy_5;
+            x((row-1)*deg+1:row*deg,j+1)=1.03*dummy_1\dummy_5;
             %x((row-1)*deg+1:row*deg,j+1)=clever_node(row,x);
             w15_5(:,j+1)=w15_5(:,j)-n1*rho*(x(1:deg,j+1)-x(4*deg+1:5*deg,j+1));        % w14 update as 1 is the predecessor of 4
             w45_5(:,j+1)=w45_5(:,j)-n2*rho*(x(3*deg+1:4*deg,j+1)-x(4*deg+1:5*deg,j+1));        % w14 update as 1 is the predecessor of 4
@@ -188,7 +188,11 @@ for j=1:N
 end  %  end %end of for j 
 display(j);
 
-x_fault_no_detection=x;
+%x_no_fault=x;
+%x_no_fault_detection=x;
+x_no_fault_detection=x;
 %display(x(:,ending_interation_num));
-save('fault_no_detection_3per.mat');
+%save('no_fault_3.mat');
+%save('fault_no_detection_3per_3.mat');
+save('fault_detection_3per_3.mat');
 

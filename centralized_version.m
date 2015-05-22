@@ -188,12 +188,7 @@ for j=1:N
 %    disp('sum_violation');
 %    disp(sum_violation);
     
-       
-            
-           
-   
-   
-   convergence_flag=TRUE;
+    convergence_flag=TRUE;
    for row=1:NO_AREA*deg
         if ((abs(x(row,j+1)-x(row,j)))>0.000001)
           convergence_flag=FALSE;
