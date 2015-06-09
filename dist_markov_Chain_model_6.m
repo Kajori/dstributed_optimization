@@ -6,9 +6,6 @@
 MAX_DEV = 1e-6;
 
 clear all; clc; close all;
-%load n16 % PST model  
-%load IEEE68_dyn
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %         Defining the constants
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -18,7 +15,6 @@ PMU_PER_AREA=3;
 SIZE_OF_voltage_data=1000;
 NO_OF_EIGEN_VALUES=20;
 
-PRECISION=10000000000;
 TRUE=1;
 FALSE=0;
 area_line_no=[53,60,61;
@@ -34,22 +30,15 @@ m=60; % height of the Hankel matrix
 H_pmu=zeros(NO_AREA,PMU_PER_AREA,m,deg);
 C_pmu=zeros(NO_AREA,PMU_PER_AREA,m);
 
-text = sprintf(' size(H_pmu) size(C_pmu) ');
-%disp(text);
-%disp(size(H_pmu));
-%disp(size(C_pmu));
-
 H_pdc=zeros(NO_AREA,PMU_PER_AREA*m,deg);
 C_pdc=zeros(NO_AREA,PMU_PER_AREA*m);
 %display('Gaussian Noise no 3 phase fault');
 
 rho=10^-9;
-N=10000;
 disp('-----------------------------------------------');
 tic;
 
 TT=PMU_PER_AREA*m;
-SCALE = 0.001; %0.01 % noise
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %         Loading data from the input files
@@ -61,9 +50,7 @@ for row=1:NO_AREA
            Y_org(row,col,:)=importdata(file_name,'\n');
       end %end of for col
 end %end of for row
-text = sprintf( ' size(Y_org) =  ');
-%disp(text);
-%disp(size(Y_org));
+%disp(sprintf( ' size(Y_org) =  %d ',size(Y_org)));
 disp(' Loaded data from the input files ');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -74,15 +61,15 @@ fid = fopen('stat.txt', 'a+');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
  %         adding Gausian Noise  to the data
  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+SCALE = 0.001; %0.01 % noise
 for row=1:NO_AREA 
     for col=1:PMU_PER_AREA
              noise = randn(1); % noise with mean=0 and std=1;
              Y(row,col,:)= ( 1+  noise* SCALE )* Y_org(row,col,:);
     end %end of for col
 end %end of for row        
-text = sprintf( ' size(Y) =');
-%disp(text);
-%disp(size(Y));
+%disp(sprintf( ' size(Y) = %d',size(Y)));
+
      
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %         Hankel Matrix Creation
@@ -104,96 +91,110 @@ for row=1:NO_AREA
           C_pdc(row,(col-1)*m+1: col*m) = reshape(C_pmu(row,col,:),m,1);
      end %end of for col
      
-     %text = sprintf( '1. row = %d size(H_pdc) size(C_pdc)=%d ',row);
      %disp(text);
      %disp(size(H_pdc));
      %disp(size(C_pdc));
  end %end of for row
 
+
+
+for rn=0:NO_AREA %rn means the removed node
 w=zeros(NO_AREA*deg,1);
 x(:,1)=ones(NO_AREA*deg,1); %Everyone has equal initial x
 z(:,1)=zeros(deg,1);
-sum_violation=zeros(1,NO_AREA);
-convergence_flag=FALSE;
-for j=1:N
-    
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %         Check if we have reached convergence
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    if( convergence_flag==TRUE)
-         text=sprintf('Convergence Reached at %d ',j);
-         display(text);
-        break;
-    end
-    
+for j=1:10000
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %         if we have not reached convergence
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     text=sprintf(' -------------- %d --------------',j);
     disp( text);
-    for row=1:NO_AREA 
-        H_r=reshape(H_pdc(row,1:TT,:),TT,deg);
-        C_r=reshape(C_pdc(row,1:TT,:),TT,1);
-        temp=(H_r'*C_r)-w((row-1)*deg+1:row*deg,j)+rho*z(:,j);
-        x((row-1)*deg+1:row*deg,j+1)=(H_r'*H_r+rho*eye(size(H_r,2)))\temp;
-        %disp ( ' ******************* ');
-        %disp(row);
-%         disp(size(temp));
-%         disp(size(temp_2));
-%         disp(size(temp_3));
-%         disp(size(temp_4));
-   end %end row
-    
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %         find the top f and bottom f outliers
-    %         max_sum and min_sum are the top and bottom outliers
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     for row=1:NO_AREA
-       sum_temp=0;
-       for col=1:NO_AREA
-            sum_temp=sum_temp + 0.5*norm(x((row-1)*deg+1:row*deg,j+1)-x((col-1)*deg+1:col*deg,j+1));
-       end
-       sum_violation(1,row)=sum_temp;
-   end
-   
-   [max_sum, max_index ]=max(sum_violation);
-   [min_sum, min_index ]=min(sum_violation);
-   
+        if(row~=rn)
+            H_r=reshape(H_pdc(row,1:TT,:),TT,deg);
+            C_r=reshape(C_pdc(row,1:TT,:),TT,1);
+            temp=(H_r'*C_r)-w((row-1)*deg+1:row*deg,j)+rho*z(:,j);
+            x((row-1)*deg+1:row*deg,j+1)=(H_r'*H_r+rho*eye(size(H_r,2)))\temp;
+            if(row==5) x((row-1)*deg+1:row*deg,j+1)=1.05*x((row-1)*deg+1:row*deg,j+1);
+            end
+        end
+   end %end row
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %       Remove one node from the calculation
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    temp=zeros(deg,1);
+   count=0;
    for row=1:NO_AREA
-       if(row~=max_index && row~=min_index)
+       if(row~=rn)
             temp=temp+x((row-1)*deg+1:row*deg,j+1);
+            count=count+1;
        end
-    end
-    z(:,j+1)=transpose(temp');
-    %disp(size(z));
-    disp('sum_violation =');
-    disp(sum_violation);
-    text = sprintf (' max_index = %d min_index = %d ',max_index,min_index);
-    disp(text);
+   end
+   temp=temp/count;
+   z(:,j+1)=transpose(temp');
+   
    for row=1:NO_AREA
-       if(row~=max_index && row~=min_index)
-            w((row-1)*deg+1:row*deg,j+1)= w((row-1)*deg+1:row*deg,j)+rho*( x((row-1)*deg+1:row*deg,j+1)-z(:,j+1)); 
-       else 
-            w((row-1)*deg+1:row*deg,j+1)= w((row-1)*deg+1:row*deg,j);
+       if(row~=rn)
+           w((row-1)*deg+1:row*deg,j+1)= w((row-1)*deg+1:row*deg,j)+rho*( x((row-1)*deg+1:row*deg,j+1)-z(:,j+1)); 
        end
    end %end row
     
-   
-%    disp('max_sum');
-%    disp(max_sum);
-%    disp('index');
-%    disp(index);
-%    disp('sum_violation');
-%    disp(sum_violation);
-    
-    convergence_flag=TRUE;
+ 
+   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+   %         Check if we have reached convergence
+   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+   convergence_flag=TRUE;
    for row=1:NO_AREA*deg
-        if ((abs(x(row,j+1)-x(row,j)))>0.000001)
-          convergence_flag=FALSE;
+        if(row~=rn)
+            if ((abs(x(row,j+1)-x(row,j)))>0.0000001)
+                convergence_flag=FALSE;
+            end
         end
    end
-    
+   if( convergence_flag==TRUE)
+         display(sprintf('Convergence Reached at %d ',j));
+         break;
+    end 
+end %end of j
+
+if (rn==0) x_0=x(:,j);
+elseif (rn==1) x_1=x(:,j);
+elseif (rn==2) x_2=x(:,j);
+elseif (rn==3) x_3=x(:,j);
+elseif (rn==4) x_4=x(:,j);
+elseif (rn==5) x_5=x(:,j);
+end    
+
+end %for rn=1:NO_AREA
+
+disp(' \n ');
+disp('%%%%%%%%%%%%%% for area 1 %%%%%%%%%%%%%%%%');
+for row=1:deg
+    disp(sprintf(' %s %s  %s  %s  %s',x_0(row),x_2(row),x_3(row),x_4(row),x_5(row)));
 end
-%print x(:,j)
+
+disp(' \n ');
+disp(' %%%%%%%%%%%%%% for area 2 %%%%%%%%%%%%%%%%');
+for row=deg+1:2*deg
+    disp(sprintf(' %s %s  %s  %s  %s',x_0(row),x_1(row),x_3(row),x_4(row),x_5(row)));
+end
+
+disp(' \n ');
+disp('%%%%%%%%%%%%%% for area 3 %%%%%%%%%%%%%%%%');
+for row=2*deg+1:3*deg
+    disp(sprintf(' %s  %s  %s  %s',x_0(row),x_1(row),x_2(row),x_4(row),x_5(row)));
+end
+
+disp(' \n ');
+disp(' %%%%%%%%%%%%%% for area 4 %%%%%%%%%%%%%%%%');
+for row=3*deg+1:4*deg
+    disp(sprintf(' %s %s  %s  %s  %s',x_0(row),x_1(row),x_2(row),x_3(row),x_5(row)));
+end
+
+disp(' \n ');
+disp(' %%%%%%%%%%%%%% for area 5 %%%%%%%%%%%%%%%%');
+for row=4*deg+1:5*deg
+    disp(sprintf(' %s %s  %s  %s  %s',x_0(row),x_1(row),x_2(row),x_3(row),x_4(row)));
+end
+

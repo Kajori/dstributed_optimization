@@ -159,7 +159,7 @@ for j=1:N
            w34_4(:,j+1)=w34_4(:,j)-rho*(left_val-x(3*deg+1:4*deg,j+1));   
        elseif ( row==5)
            dummy_5=dummy_4+((-1)*w15_5(:,j) - w45_5(:,j))+rho*(left_val+right_val);
-           x((row-1)*deg+1:row*deg,j+1)=(1+0)*dummy_1\dummy_5;
+           x((row-1)*deg+1:row*deg,j+1)=(1+0.03)*dummy_1\dummy_5;
             %x_5=clever_adversary(row,x_5,NO_AREA,x,j+1,deg);
             %x_5=good_adversary(row,x_5,NO_AREA,x,j+1,deg);
             w15_5(:,j+1)=w15_5(:,j)-rho*(left_val-x(4*deg+1:5*deg,j+1));        % w14 update as 1 is the predecessor of 4
@@ -169,7 +169,7 @@ for j=1:N
    
     convergence_flag=TRUE;
     for row=1:NO_AREA*deg
-        if ((abs(x(row,j+1)*PRECISION-x(row,j)*PRECISION))>1)
+        if ((abs(x(row,j+1)-x(row,j)))>0.0000001)
           convergence_flag=FALSE;
           %if(j>N-3) disp(sprintf('abs(x(%d,%d)-x(%d,%d) = %d - %d =%d  ',row,j+1,row,j,x(row,j+1),x(row,j),abs(x(row,j+1)-x(row,j)))); end
         end
@@ -179,37 +179,29 @@ for j=1:N
      %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
      row=1;
      [left,right]=cal_left_right(row);
-     left_val= cal_outlier_individual_same_val(x,j+1,row,NO_AREA,deg,left,PRECISION);
-     right_val= cal_outlier_individual_same_val(x,j+1,row,NO_AREA,deg,right,PRECISION);
+     left_val= cal_outlier_individual_next_val(x,j+1,row,NO_AREA,deg,left,PRECISION);
+     right_val= cal_outlier_individual_next_val(x,j+1,row,NO_AREA,deg,right,PRECISION);
      w15_1(:,j+1)=w15_1(:,j)-rho*(x(1:deg,j+1)-left_val);
      w12_1(:,j+1)=w12_1(:,j)-rho*(x(1:deg,j+1)-right_val);
      
      row=2;
      [~,right]=cal_left_right(row);
-     right_val= cal_outlier_individual_same_val(x,j+1,row,NO_AREA,deg,right,PRECISION);
+     right_val= cal_outlier_individual_next_val(x,j+1,row,NO_AREA,deg,right,PRECISION);
      w23_2(:,j+1)=w23_2(:,j)-rho*(x(deg+1:2*deg,j+1)-right_val);
      
      row=3;
      [~,right]=cal_left_right(row);
-     right_val= cal_outlier_individual_same_val(x,j+1,row,NO_AREA,deg,right,PRECISION);
+     right_val= cal_outlier_individual_next_val(x,j+1,row,NO_AREA,deg,right,PRECISION);
      w34_3(:,j+1)=w34_3(:,j)-rho*(x(2*deg+1:3*deg,j+1)-right_val);
      
      row=4;
      [~,right]=cal_left_right(row);
-     right_val= cal_outlier_individual_same_val(x,j+1,row,NO_AREA,deg,right,PRECISION);
+     right_val= cal_outlier_individual_next_val(x,j+1,row,NO_AREA,deg,right,PRECISION);
      w45_4(:,j+1)=w45_4(:,j)-rho*(x(3*deg+1:4*deg,j+1)-right_val);
 end  %  end %end of for j 
-display(j-1);
-disp('row == 1');
-disp(x(1:deg,j-1));
-disp('row == 2');
-disp(x(deg+1:2*deg,j-1));
+filename='fault_detection_3per_12_model_5.mat';
+x_fault_detection=x;
 
-display(j);
-disp('row == 1');
-disp(x(1:deg,j));
-disp('row == 2');
-disp(x(deg+1:2*deg,j));
-%display(x(:,ending_interation_num));
-save('fault_no_detection_3per.mat');
+
+save(filename);
 
